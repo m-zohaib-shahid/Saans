@@ -1,0 +1,6 @@
+{
+  "name": "Saans — Lahore Smog Guardian",
+  "description": "Real-time AI-powered air quality intelligence, on-device ML forecasting, bilingual Urdu/English health advisor, and civic action platform for Lahore's winter smog.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
