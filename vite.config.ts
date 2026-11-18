@@ -1,12 +1,37 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
+  const envLocalPath = path.resolve(__dirname, '.env.local');
+  const envLocal = fs.existsSync(envLocalPath)
+    ? dotenv.parse(fs.readFileSync(envLocalPath))
+    : {};
+
+  const rawInsforgeUrl =
+    process.env.VITE_INSFORGE_URL || envLocal.VITE_INSFORGE_URL || '';
+  const cleanInsforgeUrl = rawInsforgeUrl.trim().replace(/\/+$/, '');
+
+  const procKey = (process.env.VITE_INSFORGE_ANON_KEY || '').trim();
+  const localKey = (envLocal.VITE_INSFORGE_ANON_KEY || '').trim();
+  // Never leak an admin ik_ key into client JS if a public anon_ key is available
+  const cleanInsforgeAnonKey =
+    procKey && !procKey.startsWith('ik_') ? procKey : localKey || procKey;
+
+  const defineEnv: Record<string, string> = {};
+  if (cleanInsforgeUrl) {
+    defineEnv['import.meta.env.VITE_INSFORGE_URL'] = JSON.stringify(cleanInsforgeUrl);
+  }
+  if (cleanInsforgeAnonKey) {
+    defineEnv['import.meta.env.VITE_INSFORGE_ANON_KEY'] = JSON.stringify(cleanInsforgeAnonKey);
+  }
+
   return {
+    define: defineEnv,
     plugins: [
       react(),
       tailwindcss(),
@@ -69,7 +94,7 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: true,
+          enabled: false,
           type: 'module',
         },
       }),

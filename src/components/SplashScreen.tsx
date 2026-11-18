@@ -157,18 +157,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         </div>
       )}
 
-      {/* Top Skip Hint */}
-      <div className="relative z-10 w-full max-w-md flex justify-end min-h-[24px]">
-        {skippable && (
-          <motion.span
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.75 }}
-            className="text-xs text-teal-100 hover:text-white transition-opacity"
-          >
-            {lang === 'ur' ? 'جاری رکھنے کے لیے کلک کریں' : 'Tap anywhere to skip'}
-          </motion.span>
-        )}
-      </div>
+      {/* Top Spacer */}
+      <div className="relative z-10 w-full max-w-md min-h-[24px]" />
 
       {/* Center Animated Lungs / Wind / Leaf Emblem + Title */}
       <div className="relative z-10 flex flex-col items-center text-center space-y-5 max-w-md">
