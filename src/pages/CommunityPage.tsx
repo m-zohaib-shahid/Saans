@@ -14,6 +14,7 @@ interface CommunityPageProps {
   onReportsChange: (next: CommunityReport[]) => void;
   hero: HeroProgress;
   heroName: string;
+  userId?: string | null;
   onAwardPoints: (action: 'report' | 'mask') => void;
   lang: Language;
 }
@@ -31,6 +32,7 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({
   onReportsChange,
   hero,
   heroName,
+  userId,
   onAwardPoints,
   lang,
 }) => {
@@ -42,6 +44,7 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({
   const [description, setDescription] = useState('');
   const [photoDataUrl, setPhotoDataUrl] = useState<string | undefined>(undefined);
   const [geoMessage, setGeoMessage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const today = new Date().toISOString().slice(0, 10);
   const pledgedToday = hero.maskPledgedToday === today;
@@ -84,27 +87,33 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!description.trim()) return;
-    const zone = LAHORE_ZONES.find((z) => z.id === zoneId);
-    const created = saveCommunityReport({
-      type,
-      lat,
-      lon,
-      zoneName: zone ? (isUr ? zone.nameUr : zone.name) : `${lat}, ${lon}`,
-      description: description.trim(),
-      photoDataUrl,
-      author: heroName || 'Lahore Citizen',
-    });
-    onReportsChange([created, ...reports]);
-    onAwardPoints('report');
-    setDescription('');
-    setPhotoDataUrl(undefined);
+    if (!description.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const zone = LAHORE_ZONES.find((z) => z.id === zoneId);
+      const { report } = await saveCommunityReport({
+        type,
+        lat,
+        lon,
+        zoneName: zone ? (isUr ? zone.nameUr : zone.name) : `${lat}, ${lon}`,
+        description: description.trim(),
+        photoDataUrl,
+        author: heroName || 'Lahore Citizen',
+        userId,
+      });
+      onReportsChange([report, ...reports]);
+      onAwardPoints('report');
+      setDescription('');
+      setPhotoDataUrl(undefined);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleUpvote = (id: string) => {
-    const updated = toggleReportUpvote(id);
+  const handleUpvote = async (id: string) => {
+    const updated = await toggleReportUpvote(id, reports, userId);
     onReportsChange(updated);
   };
 
@@ -120,9 +129,13 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({
                 {isUr ? 'کلین ایئر ہیرو اور کمیونٹی ایکشن' : 'Clean Air Hero & Community Action'}
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {isUr
-                  ? 'آلودگی کی نشاندہی کریں، ماسک کا عہد کریں، اور پوائنٹس حاصل کریں (مقامی ڈیمو اسٹوریج)'
-                  : 'Report pollution sources, take the daily N95 pledge, and earn badges (demo local storage — backend pluggable)'}
+                {userId
+                  ? isUr
+                    ? 'آلودگی کی نشاندہی کریں، ماسک کا عہد کریں، اور InsForge کلاؤڈ پر پوائنٹس محفوظ کریں'
+                    : 'Report pollution sources, take the daily N95 pledge, and sync badges to InsForge Cloud'
+                  : isUr
+                  ? 'مہمان موڈ: مقامی براؤزر اسٹوریج — کلاؤڈ سنک کے لیے سائن ان کریں'
+                  : 'Guest mode (local preview) — sign in to publish reports & sync Hero points'}
               </p>
             </div>
           </div>
@@ -273,9 +286,16 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({
 
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl bg-[#0B3C5D] text-white text-sm font-medium hover:bg-[#092f4a]"
+              disabled={submitting}
+              className="w-full py-2.5 rounded-xl bg-[#0B3C5D] text-white text-sm font-medium hover:bg-[#092f4a] disabled:opacity-60"
             >
-              {isUr ? 'رپورٹ جمع کروائیں' : 'Submit Citizen Report'}
+              {submitting
+                ? isUr
+                  ? 'محفوظ ہو رہا ہے...'
+                  : 'Submitting...'
+                : isUr
+                ? 'رپورٹ جمع کروائیں'
+                : 'Submit Citizen Report'}
             </button>
           </form>
         </section>
@@ -287,7 +307,13 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({
               {isUr ? 'کمیونٹی رپورٹس فیڈ' : 'Live Community Reports Feed'}
             </h3>
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              {isUr ? 'ڈیمو لوکل اسٹوریج' : 'Demo storage · backend pluggable'}
+              {userId
+                ? isUr
+                  ? 'InsForge کلاؤڈ ڈیٹا بیس'
+                  : 'InsForge Cloud Postgres'
+                : isUr
+                ? 'مہمان مقامی پیش نظارہ'
+                : 'Public feed · local guest preview'}
             </span>
           </div>
 

@@ -44,6 +44,8 @@ import { authService } from './services/authService';
 import { fetchPersonalizedAdvice, generateSharePost } from './services/aiService';
 import {
   awardHeroPoints,
+  fetchCommunityReports,
+  fetchHeroProgressFromCloud,
   loadCommunityReports,
   loadHeroProgress,
   toggleDailyChallenge,
@@ -151,6 +153,39 @@ export default function App() {
     notificationsEnabled: settings.notificationsEnabled,
   });
 
+  // Hydrate InsForge Auth session & cloud reports on mount
+  useEffect(() => {
+    let cancelled = false;
+    async function initInsForge() {
+      const { session: hydrated, alertThresholdAqi } = await authService.hydrateSession();
+      if (cancelled) return;
+      setSession(hydrated);
+      if (hydrated && !hydrated.isGuest) {
+        updateSettings({
+          persona: hydrated.persona,
+          heroName: hydrated.name,
+          ...(typeof alertThresholdAqi === 'number'
+            ? { alertThresholdAqi }
+            : {}),
+        });
+        const [cloudReports, cloudHero] = await Promise.all([
+          fetchCommunityReports(hydrated.id),
+          fetchHeroProgressFromCloud(hydrated.id),
+        ]);
+        if (cancelled) return;
+        setReports(cloudReports);
+        setHero(cloudHero);
+      } else {
+        const publicReports = await fetchCommunityReports(null);
+        if (!cancelled) setReports(publicReports);
+      }
+    }
+    void initInsForge();
+    return () => {
+      cancelled = true;
+    };
+  }, [updateSettings]);
+
   const loadAdvice = useCallback(async () => {
     if (!airData.lahore) return;
     setAdviceLoading(true);
@@ -219,23 +254,25 @@ export default function App() {
     }
   };
 
+  const authenticatedUserId = session && !session.isGuest ? session.id : null;
+
   const handleAwardPoints = (action: 'report' | 'share' | 'advice' | 'mask') => {
-    setHero(awardHeroPoints(action));
+    setHero(awardHeroPoints(action, authenticatedUserId));
   };
 
   const handleToggleChallenge = (challengeId: string) => {
-    setHero(toggleDailyChallenge(challengeId));
+    setHero(toggleDailyChallenge(challengeId, authenticatedUserId));
   };
 
   const handleSignOut = () => {
-    authService.signOut();
+    void authService.signOut();
     setSession(null);
     setUserMenuOpen(false);
     setActiveTab('home');
   };
 
   const handleDeleteAllData = () => {
-    authService.deleteAllLocalData();
+    void authService.deleteAllLocalData();
     setSession(null);
     setReports([]);
     setHero(loadHeroProgress());
@@ -320,13 +357,23 @@ export default function App() {
         liteMode={settings.liteMode}
         persona={settings.persona}
         session={session}
-        onSessionChange={(nextSession, chosenPersona) => {
+        onSessionChange={(nextSession, chosenPersona, alertThresholdAqi) => {
           setSession(nextSession);
           if (nextSession) {
             updateSettings({
               persona: chosenPersona ?? nextSession.persona,
               heroName: nextSession.name,
+              ...(typeof alertThresholdAqi === 'number' ? { alertThresholdAqi } : {}),
             });
+            if (!nextSession.isGuest) {
+              void Promise.all([
+                fetchCommunityReports(nextSession.id),
+                fetchHeroProgressFromCloud(nextSession.id),
+              ]).then(([cloudReports, cloudHero]) => {
+                setReports(cloudReports);
+                setHero(cloudHero);
+              });
+            }
           }
         }}
         onSelectLanguage={(language) => updateSettings({ language })}
@@ -834,6 +881,7 @@ export default function App() {
                         onReportsChange={setReports}
                         hero={hero}
                         heroName={userName}
+                        userId={authenticatedUserId}
                         onAwardPoints={(act) => handleAwardPoints(act)}
                         lang={settings.language}
                       />
@@ -849,6 +897,7 @@ export default function App() {
                             name: patch.name,
                             persona: patch.persona,
                             city: patch.city,
+                            alertThresholdAqi: patch.alertThresholdAqi,
                           });
                           if (updated) setSession(updated);
                           updateSettings({

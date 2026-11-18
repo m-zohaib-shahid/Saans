@@ -16,7 +16,11 @@ interface AppGateProps {
   liteMode: boolean;
   persona: PersonaId;
   session: UserSession | null;
-  onSessionChange: (session: UserSession | null, persona?: PersonaId) => void;
+  onSessionChange: (
+    session: UserSession | null,
+    persona?: PersonaId,
+    alertThresholdAqi?: number
+  ) => void;
   onSelectLanguage: (lang: Language) => void;
   onSelectPersona: (persona: PersonaId) => void;
   onEnableNotifications: () => Promise<void>;
@@ -66,8 +70,8 @@ export const AppGate: React.FC<AppGateProps> = ({
           useUrduNumerals={useUrduNumerals}
           liteMode={liteMode}
           onChangeLanguage={onSelectLanguage}
-          onAuthenticated={(newSession, chosenPersona) => {
-            onSessionChange(newSession, chosenPersona);
+          onAuthenticated={(newSession, chosenPersona, alertThresholdAqi) => {
+            onSessionChange(newSession, chosenPersona, alertThresholdAqi);
           }}
         />
       </ErrorBoundary>
